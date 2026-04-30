@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>MIDI Controller Legacy</title>
+    <style>
+      body {
+        background: #111;
+        color: white;
+        font-family: sans-serif;
+        margin: 0;
+        overflow: hidden;
+        touch-action: none;
+      }
+      #unlock-btn {
+        width: 100%;
+        padding: 20px;
+        background: #00ff88;
+        color: black;
+        border: none;
+        font-weight: bold;
+      }
+      #status-bar {
+        background: #222;
+        font-size: 11px;
+        padding: 8px;
+        text-align: center;
+        border-bottom: 1px solid #444;
+        color: #ffaa00;
+      }
+      .console {
+        display: flex;
+        height: calc(100vh - 80px);
+        width: 100vw;
+        gap: 2px;
+        padding: 2px;
+        box-sizing: border-box;
+      }
+      .strip {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: #1a1a1a;
+        border-radius: 4px;
+        padding: 2px;
+        border: 1px solid #333;
+      }
+      .track-label {
+        text-align: center;
+        font-size: 8px;
+        color: #888;
+      }
+      .pad-grid {
+        display: grid;
+        grid-template-rows: repeat(4, 1fr);
+        gap: 2px;
+        flex-grow: 1;
+      }
+      .pad {
+        background: #333;
+        border: 1px solid #444;
+        border-radius: 2px;
+      }
+      .pad:active {
+        background: #00ff88 !important;
+      }
+      .fx-control {
+        display: flex;
+        flex-direction: column;
+        background: #222;
+        padding: 2px;
+      }
+      input[type="range"] {
+        width: 90%;
+        margin: 2px auto;
+      }
+      .volume-container {
+        height: 120px;
+        display: flex;
+        justify-content: center;
+        padding: 5px 0;
+      }
+      .fader-vertical {
+        -webkit-appearance: slider-vertical;
+        width: 30px;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <button id="unlock-btn">1. CLICCA QUI PER ATTIVARE</button>
+    <div id="status-bar">STATO: IN ATTESA...</div>
+    <div class="console" id="console"></div>
+
+    <script>
+      // Usiamo solo sintassi vecchia (var, function) per massima compatibilità
+      var statusEl = document.getElementById("status-bar");
+      var unlockBtn = document.getElementById("unlock-btn");
+      var consoleEl = document.getElementById("console");
+      var midiAccess = null;
+
+      // Funzione di invio
+      window.sendMIDI = function (cmd, n, v) {
+        if (!midiAccess) return;
+        var outputs = [];
+        midiAccess.outputs.forEach(function (port) {
+          outputs.push(port);
+        });
+
+        for (var i = 0; i < outputs.length; i++) {
+          try {
+            outputs[i].send([Math.floor(cmd), Math.floor(n), Math.floor(v)]);
+          } catch (e) {}
+        }
+      };
+
+      // Funzione di sblocco
+      unlockBtn.onclick = function () {
+        if (navigator.requestMIDIAccess) {
+          navigator
+            .requestMIDIAccess()
+            .then(function (access) {
+              midiAccess = access;
+              unlockBtn.style.display = "none";
+
+              var outList = [];
+              midiAccess.outputs.forEach(function (o) {
+                outList.push(o.name);
+              });
+
+              if (outList.length > 0) {
+                statusEl.innerHTML = "CONNESSO: " + outList.join(", ");
+                statusEl.style.color = "#00ff88";
+              } else {
+                statusEl.innerHTML = "ARANCIONE: NESSUNA PORTA TROVATA";
+              }
+            })
+            .catch(function (err) {
+              alert("Errore MIDI: " + err);
+            });
+        } else {
+          alert("Browser non supportato");
+        }
+      };
+
+      // Generazione Interfaccia con stringhe classiche (no backticks)
+      var colori = [
+        "#FF5555",
+        "#FFaa55",
+        "#FFFF55",
+        "#55FF55",
+        "#55FFFF",
+        "#5555FF",
+        "#FF55FF",
+        "#FFFFFF",
+      ];
+
+      for (var t = 0; t < 8; t++) {
+        var strip = document.createElement("div");
+        strip.className = "strip";
+        strip.style.borderTop = "3px solid " + colori[t];
+
+        var label = document.createElement("div");
+        label.className = "track-label";
+        label.innerHTML = "T" + (t + 1);
+        strip.appendChild(label);
+
+        var grid = document.createElement("div");
+        grid.className = "pad-grid";
+        for (var p = 0; p < 4; p++) {
+          (function (track, padNum) {
+            var btn = document.createElement("button");
+            btn.className = "pad";
+            btn.ontouchstart = function (e) {
+              e.preventDefault();
+              sendMIDI(0x90 + track, 60 + padNum, 127);
+            };
+            btn.ontouchend = function (e) {
+              e.preventDefault();
+              sendMIDI(0x80 + track, 60 + padNum, 0);
+            };
+            grid.appendChild(btn);
+          })(t, p);
+        }
+        strip.appendChild(grid);
+
+        var fx = document.createElement("div");
+        fx.className = "fx-control";
+        // HTML costruito con concatenazione classica
+        var htmlFx =
+          '<input type="range" min="0" max="127" value="64" oninput="sendMIDI(0xB0+' +
+          t +
+          ', 10, this.value)">';
+        htmlFx +=
+          '<input type="range" min="0" max="127" value="0" oninput="sendMIDI(0xB0+' +
+          t +
+          ', 11, this.value)">';
+        fx.innerHTML = htmlFx;
+        strip.appendChild(fx);
+
+        var volContainer = document.createElement("div");
+        volContainer.className = "volume-container";
+        volContainer.innerHTML =
+          '<input type="range" class="fader-vertical" min="0" max="127" value="100" orient="vertical" oninput="sendMIDI(0xB0+' +
+          t +
+          ', 7, this.value)">';
+        strip.appendChild(volContainer);
+
+        consoleEl.appendChild(strip);
+      }
+
+      document.addEventListener(
+        "touchmove",
+        function (e) {
+          e.preventDefault();
+        },
+        { passive: false },
+      );
+    </script>
+  </body>
+</html>
