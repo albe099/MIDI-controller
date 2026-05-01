@@ -7,16 +7,18 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
     <link rel="stylesheet" href="style.css" />
-    <title>MIDI Strip Controller</title>
+    <title>MIDI Controller Pro</title>
   </head>
   <body>
     <button id="unlock-btn">TAP PER ATTIVARE MIDI</button>
-    <div id="status-bar">STATO: ATTESA...</div>
+    <div id="status-bar">STATO: ATTESA ATTIVAZIONE</div>
 
-    <div class="console" id="console">
-      <!-- Le 8 strip verranno generate qui dal JS -->
-    </div>
+    <div class="console" id="console"></div>
 
     <script src="script.js"></script>
   </body>
